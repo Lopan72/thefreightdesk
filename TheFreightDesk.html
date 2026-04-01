@@ -241,7 +241,7 @@ async function generateScript(){
   const txt=sources.map((s,i)=>`SOURCE ${i+1} — ${s.label}:\n${s.text}`).join('\n\n---\n\n');
   const prompt=`You are the producer of "The Freight Desk," a professional trucking and logistics podcast for DSF Logistics. The listener is a trucking executive with a 20-30 minute commute.\n\nWrite a complete polished podcast SCRIPT using ONLY the sources provided. Natural spoken-word language.\n\nFORMAT:\n[COLD OPEN] — 60-second hook\n[MARKET SNAPSHOT] — Freight rates, capacity\n[INDUSTRY NEWS] — Driver market, regulations, carrier moves\n[MONEY & MARKETS] — Investor reports, analyst calls\n[TECH CORNER] — Automation, EV, TMS\n[THE TAKEAWAY] — 60-second close\n\nTarget 1,800–2,200 words. No bullet points.\n\nSOURCES:\n${txt}`;
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':'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','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,system:'Expert podcast producer for trucking and logistics. Write clear engaging spoken-word scripts.',messages:[{role:'user',content:prompt}]})});
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':getKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,system:'Expert podcast producer for trucking and logistics. Write clear engaging spoken-word scripts.',messages:[{role:'user',content:prompt}]})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
     currentScript=d.content.map(c=>c.text||'').join('');
     document.getElementById('script-out').textContent=currentScript;
@@ -289,6 +289,18 @@ function sendHeight(){
 window.addEventListener('load',sendHeight);
 window.addEventListener('resize',sendHeight);
 new MutationObserver(sendHeight).observe(document.getElementById('app'),{childList:true,subtree:true,attributes:true});
+</script>
+<div id="key-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(26,31,46,0.92);z-index:9999;align-items:center;justify-content:center;"><div style="background:#fff;border-radius:12px;padding:2rem;max-width:420px;width:90%;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;"><div style="background:#C0272D;color:white;font-size:11px;font-weight:700;padding:4px 8px;border-radius:4px;">DSFL</div><span style="font-size:16px;font-weight:700;color:#1a1f2e;">The Freight Desk</span></div><p style="font-size:13px;color:#5a6070;margin-bottom:1rem;line-height:1.6;">Enter your Anthropic API key to enable AI features. Stored only in this browser session.</p><input type="password" id="key-input-modal" placeholder="sk-ant-api03-..." style="width:100%;font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid rgba(26,31,46,0.22);outline:none;margin-bottom:8px;font-family:monospace;box-sizing:border-box;"><div id="key-error" style="font-size:12px;color:#C0272D;margin-bottom:8px;min-height:16px;"></div><button onclick="saveKey()" style="width:100%;padding:10px;background:#C0272D;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Get Started</button><p style="font-size:11px;color:#9aa0b0;margin-top:10px;text-align:center;">Get your key at <a href="https://console.anthropic.com" target="_blank" style="color:#C0272D;">console.anthropic.com</a></p></div></div>
+<script>
+function getKey(){return sessionStorage.getItem('dsfl_api_key')||'';}
+function checkKey(){if(!sessionStorage.getItem('dsfl_api_key')){document.getElementById('key-modal').style.display='flex';}}
+function saveKey(){
+  const k=document.getElementById('key-input-modal').value.trim();
+  if(!k||!k.startsWith('sk-ant')){document.getElementById('key-error').textContent='Enter a valid key (starts with sk-ant-)';return;}
+  sessionStorage.setItem('dsfl_api_key',k);
+  document.getElementById('key-modal').style.display='none';
+}
+window.addEventListener('load',checkKey);
 </script>
 </body>
 </html>
