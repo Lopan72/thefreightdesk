@@ -208,32 +208,37 @@ async function fetchFromUrl(){
   st.style.color='var(--text2)';st.textContent='Fetching article…';btn.disabled=true;btn.textContent='Fetching…';
   let fetchUrl=url.startsWith('http')?url:'https://'+url;
   try{
-    const proxy='https://api.allorigins.win/get?url='+encodeURIComponent(fetchUrl);
-    const res=await fetch(proxy);
-    const json=await res.json();
-    if(!json.contents)throw new Error('No content');
-    const doc=new DOMParser().parseFromString(json.contents,'text/html');
-    ['script','style','nav','header','footer','aside','iframe','noscript'].forEach(tag=>{doc.querySelectorAll(tag).forEach(el=>el.remove());});
-    const articleEl=doc.querySelector('article')||doc.querySelector('main')||doc.querySelector('.post-content')||doc.querySelector('.entry-content')||doc.body;
-    let text=(articleEl.innerText||articleEl.textContent||'').replace(/\n{3,}/g,'\n\n').replace(/[ \t]{2,}/g,' ').trim();
-    if(text.length<100)throw new Error('Could not extract text');
-    if(text.length>6000)text=text.substring(0,6000)+'…';
-    document.getElementById('source-input').value=text;
-    const pageTitle=doc.querySelector('h1')?.textContent||doc.querySelector('title')?.textContent||'';
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':getKey(),
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:2000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:'Search for this article URL and return a detailed summary of all key facts, data and insights from it: '+fetchUrl}]
+      })
+    });
+    const data=await res.json();
+    if(data.error)throw new Error(data.error.message);
+    const text=data.content.filter(c=>c.type==='text').map(c=>c.text||'').join('').trim();
+    if(!text||text.length<50)throw new Error('No content');
+    document.getElementById('source-input').value=text.substring(0,6000);
     const today=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const domain=new URL(fetchUrl).hostname.replace('www.','');
-    document.getElementById('source-label').value=(pageTitle?pageTitle.trim().substring(0,45):domain)+' — '+today;
+    document.getElementById('source-label').value=domain+' — '+today;
     st.style.color='green';st.textContent='✓ Article fetched — click Add Source to confirm.';
     input.value='';
   }catch(e){
-    st.style.color='var(--red)';st.textContent='Could not fetch. Paste the article text manually instead.';
+    st.style.color='var(--red)';st.textContent='Could not fetch: '+e.message;
   }
   btn.disabled=false;btn.textContent='Fetch Article';
 }
 
-function renderSources(){const el=document.getElementById('source-list');if(!sources.length){el.innerHTML='<div class="empty" style="padding:1rem;">No sources yet.</div>';return;}el.innerHTML=sources.map((s,i)=>`<div class="source-item"><span class="source-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="source-label-tag">${s.label}</div><div class="source-preview">${s.text.substring(0,180)}${s.text.length>180?'…':''}</div></div><button class="source-rm" onclick="removeSource(${i})">&#215;</button></div>`).join('');}
-function addSource(){const text=document.getElementById('source-input').value.trim();const label=document.getElementById('source-label').value.trim()||'Source '+(sources.length+1);if(!text)return;sources.push({text,label});document.getElementById('source-input').value='';document.getElementById('source-label').value='';renderSources();}
-function removeSource(i){sources.splice(i,1);renderSources();}
 async function generateScript(){
   if(!sources.length){const p=document.getElementById('gen-progress');p.className='progress err';p.textContent='Add at least one source first.';return;}
   const p=document.getElementById('gen-progress');p.className='progress';p.textContent='Generating episode script… about 20–30 seconds.';
